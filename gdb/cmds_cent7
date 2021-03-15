@@ -1,0 +1,79 @@
+set breakpoint pending on
+set disassembly-flavor intel
+set print pretty on
+set print asm-demangle on
+# disable paging
+set height 0
+set width 0
+set pagination off
+set $outside = 1
+# open file. on old system might be open syscall
+catch syscall openat
+commands
+  set $outside = ! $outside
+  if ($outside)
+    i r $rax
+  else
+    bt 4
+  end
+  continue
+end
+# malloc
+break __libc_malloc
+commands
+  bt
+  continue
+end
+# malloc result. return value from _int_malloc 
+break malloc.c:2908
+commands
+  i r $rax
+  continue
+end
+# free
+break __GI___libc_free
+commands
+  bt
+  if $rdi != 0
+    x/4s $rdi
+  end
+  continue
+end
+# realloc(NULL, size) called malloc directly
+break __GI___libc_realloc if $rdi != 0
+commands
+  bt
+  #x/4s $rdi
+  continue
+end
+# realloc return
+#break *(__GI___libc_realloc+466)  from _int_realloc
+break malloc.c:3045
+commands
+  i r $r15
+  continue
+end
+# nss_load_library
+break nss_load_library
+commands
+  continue
+end
+# calloc
+break __libc_calloc
+commands
+  bt
+  continue
+end
+# calloc return value (real return is malloc.c:3523 r8)
+# return from _int_malloc()
+break malloc.c:3247
+commands
+  i r $rax
+  continue
+end
+#run
+continue
+bt
+info proc mappings
+quit
+
